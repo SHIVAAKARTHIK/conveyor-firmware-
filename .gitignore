@@ -1,0 +1,2 @@
+# config.h holds the WiFi password and the machine's login - never commit it.
+config.h

@@ -1,0 +1,88 @@
+#pragma once
+
+// ---------------------------------------------------------------------------
+// Config for the MediDispense conveyor dispensing station, built up one
+// milestone at a time (H1 -> H6). Sections below are labelled with the
+// milestone that introduced them - see docs/phase-2-plan.md for the build
+// order and the wiring table these pin numbers come from.
+// ---------------------------------------------------------------------------
+
+// --- H1: WiFi ---------------------------------------------------------------
+
+// EDIT THESE two lines for your WiFi network before uploading.
+#define WIFI_SSID "YOUR_WIFI_NAME"
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+
+// Most ESP32 DevKit V1 boards (the common 30-pin CP2102/CH340 ones) have a
+// blue onboard LED wired to GPIO2. If your board's LED doesn't blink, check
+// its silkscreen/datasheet for the actual pin and change this.
+#define ONBOARD_LED_PIN 2
+
+// --- H2: conveyor belt motor (L298N) ----------------------------------------
+// A fixed conveyor needs only ONE motor - the belt drive. We still use the
+// L298N because it's what handles the current; only channel A is wired.
+//   L298N ENA/IN1/IN2 -> GPIO 25, 26, 27
+// ENA is the PWM speed pin (0-255); IN1/IN2 set direction.
+
+#define PIN_ENA 25
+#define PIN_IN1 26
+#define PIN_IN2 27
+
+// Belt speed. A conveyor wants to run slow and steady so the medicine box
+// doesn't slide or tip - much slower than a line-following robot would.
+// Tune this once the belt is physically built and loaded.
+#define BELT_SPEED 90
+
+// Direction the belt runs to carry a box from the loading end toward the
+// stations. If your belt runs backwards, flip this to false (or swap the
+// two motor wires at the L298N terminal - see the README).
+#define BELT_FORWARD true
+
+// --- H4: pusher servos (SG90) -----------------------------------------------
+// One servo per bed. Signal wires only - servo power comes from 5 V, never
+// from a GPIO pin. Wiring: Bed 1 servo signal -> GPIO 18, Bed 2 -> GPIO 19.
+
+#define PIN_SERVO1 18
+#define PIN_SERVO2 19
+
+// Angles in degrees (0-180). REST is the paddle parked clear of the belt;
+// PUSH is the paddle swept across to shove the box into the chute. These are
+// only starting guesses - calibrate on the real machine with the serial keys
+// (see the help menu), then copy the numbers you settle on into these lines.
+#define SERVO1_REST 0
+#define SERVO1_PUSH 90
+#define SERVO2_REST 0
+#define SERVO2_PUSH 90
+
+// --- H3: IR box sensors (HS-S02P) -------------------------------------------
+// One sensor per bed's pusher line. Each has three pins: V (3.3 V power),
+// G (ground) and S (signal). Only S goes to a GPIO. Wiring:
+//   Bed 1 sensor S -> GPIO 4,  Bed 2 sensor S -> GPIO 32
+// The sensor's tiny slide switch must be on D (digital output).
+
+#define PIN_IR1 4
+#define PIN_IR2 32
+
+// --- H5: start button + buzzer ------------------------------------------------
+// Button: one leg to GPIO 15, the opposite leg to GND (internal pull-up, so
+// no resistor is needed). Pressed reads LOW. Do not hold it while the board
+// powers up - GPIO 15 is read at boot.
+// Buzzer: signal pin to GPIO 23, plus 3.3 V and GND.
+
+#define PIN_BUTTON 15
+#define PIN_BUZZER 23
+
+// Which level turns the buzzer ON. Most active-buzzer modules sound on HIGH;
+// a few are active-low. If it beeps constantly at power-up and goes quiet when
+// told to beep, flip this.
+#define BUZZER_ON_LEVEL HIGH
+
+// --- H6: backend + machine login (generated 2026-10-24) -------------------
+// The laptop running the backend. Its address changes on this router - update it,
+// or give the laptop a fixed address in the router's DHCP settings.
+#define BACKEND_HOST "YOUR-LAPTOP-NAME"  // the laptop's computer name; found as <name>.local
+#define BACKEND_PORT 8000
+#define BACKEND_URL "http://192.168.0.10:8000"  // fallback if the name lookup fails
+#define STATION_EMAIL "conveyor.station@example.com"
+#define STATION_PASSWORD "THE_STATION_ACCOUNT_PASSWORD"
+
