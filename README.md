@@ -47,7 +47,7 @@ Install [arduino-cli](https://arduino.github.io/arduino-cli/), plug the ESP32 in
 folder run one command in PowerShell:
 
 ```bash
-powershell -ExecutionPolicy Bypass -File .lash.ps1
+powershell -ExecutionPolicy Bypass -File .\flash.ps1
 ```
 
 `flash.ps1` does everything: creates `config.h` from `config.h.example` if needed (you do not edit it),
@@ -61,7 +61,7 @@ be named like its `.ino` file and this repository's folder name is different.
 ### No command line? Install from the browser
 
 With the web app running, a technician or admin can open **Install firmware** and flash the board from
-Chrome or Edge. The files it uses come from `powershell -ExecutionPolicy Bypass -File .lash.ps1 -Export <folder>`,
+Chrome or Edge. The files it uses come from `powershell -ExecutionPolicy Bypass -File .\flash.ps1 -Export <folder>`,
 which builds from `config.h.example` so no WiFi password ends up in them.
 
 <details><summary>The same by hand</summary>
