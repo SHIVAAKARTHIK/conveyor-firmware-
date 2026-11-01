@@ -43,14 +43,34 @@ jumper). Don't hold the button while powering on (D15 is read at boot).
 
 ## Build and flash
 
-Needs the ESP32 Arduino core (3.x) and the libraries **ArduinoJson** and
-**ESP32Servo**.
+Install [arduino-cli](https://arduino.github.io/arduino-cli/), plug the ESP32 in by USB, then in this
+folder run one command in PowerShell:
 
 ```bash
-cp config.h.example config.h      # copy only; you do not have to edit it
-arduino-cli compile --fqbn esp32:esp32:esp32 .
-arduino-cli upload  -p COM3 --fqbn esp32:esp32:esp32 .
+powershell -ExecutionPolicy Bypass -File .lash.ps1
 ```
+
+`flash.ps1` does everything: creates `config.h` from `config.h.example` if needed (you do not edit it),
+installs the ESP32 board support (core 3.3.11) and the libraries **ArduinoJson** and **ESP32Servo** the
+first time, finds the board's COM port, then compiles and uploads. Useful options:
+`-CompileOnly` (no board needed) and `-Port COM5` (if it finds more than one port).
+
+It builds from a correctly named copy in your temp folder, because Arduino requires a sketch folder to
+be named like its `.ino` file and this repository's folder name is different.
+
+<details><summary>The same by hand</summary>
+
+```bash
+copy config.h.example config.h
+arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+arduino-cli core install esp32:esp32@3.3.11 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+arduino-cli lib install "ArduinoJson@7.4.3" "ESP32Servo@3.2.1"
+```
+
+Then put `conveyor-firmware.ino`, `setup_portal.h` and `config.h` in a folder named `conveyor-firmware`
+and run `arduino-cli compile --fqbn esp32:esp32:esp32 .` and
+`arduino-cli upload -p COM3 --fqbn esp32:esp32:esp32 .` inside it.
+</details>
 
 ## Setup page (WiFi, backend, login)
 
