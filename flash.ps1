@@ -14,13 +14,16 @@
       powershell -ExecutionPolicy Bypass -File .\flash.ps1
   Compile only (no board needed):   ... -File .\flash.ps1 -CompileOnly
   Choose the port yourself:         ... -File .\flash.ps1 -Port COM5
+  Export for the web flasher:       ... -File .\flash.ps1 -Export ..\admin-web\public\firmware
+                                    (builds from config.h.example, so no WiFi password is ever included)
 
   The WiFi, backend computer and login are NOT set here. After flashing, the board opens its own
   WiFi "MediDispense-Setup" (password medidispense); join it and open http://192.168.4.1.
 #>
 param(
   [string]$Port = "",
-  [switch]$CompileOnly
+  [switch]$CompileOnly,
+  [string]$Export = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -86,11 +89,54 @@ Step "Preparing a build copy"
 $Stage = Join-Path ([System.IO.Path]::GetTempPath()) "medidispense-firmware\conveyor-firmware"
 if (Test-Path $Stage) { Remove-Item $Stage -Recurse -Force }
 New-Item -ItemType Directory -Force $Stage | Out-Null
-Copy-Item "conveyor-firmware.ino", "setup_portal.h", "config.h" $Stage
+Copy-Item "conveyor-firmware.ino", "setup_portal.h" $Stage
+if ($Export -ne "") {
+  # A published binary must never carry the owner's WiFi password: build it from the placeholder config.
+  Copy-Item "config.h.example" (Join-Path $Stage "config.h")
+  Write-Host "Export build: using config.h.example (placeholders), not your config.h."
+} else {
+  Copy-Item "config.h" $Stage
+}
 Write-Host "Build copy: $Stage"
 
 Step "Compiling the firmware"
-Run "Compiling" { arduino-cli compile --fqbn $Fqbn $Stage }
+if ($Export -ne "") {
+  Run "Compiling" { arduino-cli compile --fqbn $Fqbn --export-binaries $Stage }
+} else {
+  Run "Compiling" { arduino-cli compile --fqbn $Fqbn $Stage }
+}
+if ($Export -ne "") {
+  Step "Exporting the firmware files for the web flasher"
+  $built = Join-Path $Stage "build\esp32.esp32.esp32"
+  $dataDir = ((arduino-cli config get directories.data | Out-String).Trim() -split "\s*\r?\n")[0].Trim()
+  if (-not $dataDir) { $dataDir = Join-Path $env:LOCALAPPDATA "Arduino15" }
+  $bootApp0 = Join-Path $dataDir "packages\esp32\hardware\esp32\$CoreVer\tools\partitions\boot_app0.bin"
+  $parts = @(
+    @{ Path = "bootloader.bin"; Address = 4096;  Source = Join-Path $built "conveyor-firmware.ino.bootloader.bin" },
+    @{ Path = "partitions.bin"; Address = 32768; Source = Join-Path $built "conveyor-firmware.ino.partitions.bin" },
+    @{ Path = "boot_app0.bin";  Address = 57344; Source = $bootApp0 },
+    @{ Path = "firmware.bin";   Address = 65536; Source = Join-Path $built "conveyor-firmware.ino.bin" }
+  )
+  New-Item -ItemType Directory -Force $Export | Out-Null
+  $files = @()
+  foreach ($part in $parts) {
+    if (-not (Test-Path $part.Source)) { Fail "Missing build output: $($part.Source)" }
+    Copy-Item $part.Source (Join-Path $Export $part.Path) -Force
+    $files += [ordered]@{ path = $part.Path; address = $part.Address; size = (Get-Item $part.Source).Length }
+  }
+  $hash = (git rev-parse --short HEAD 2>$null)
+  if (-not $hash) { $hash = "local" }
+  $manifest = [ordered]@{
+    name    = "MediDispense conveyor firmware"
+    chip    = "ESP32"
+    version = "$(Get-Date -Format 'yyyy-MM-dd')-$hash"
+    files   = $files
+  }
+  ($manifest | ConvertTo-Json -Depth 4) | Set-Content -Encoding UTF8 (Join-Path $Export "manifest.json")
+  Write-Host ""
+  Write-Host "Exported $($files.Count) files and manifest.json to $((Resolve-Path $Export).Path)" -ForegroundColor Green
+  exit 0
+}
 if ($CompileOnly) {
   Write-Host ""
   Write-Host "Compiled OK (compile only, nothing was flashed)." -ForegroundColor Green
