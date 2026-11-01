@@ -80,9 +80,12 @@
 // --- H6: backend + machine login (generated 2026-10-24) -------------------
 // The laptop running the backend. Its address changes on this router - update it,
 // or give the laptop a fixed address in the router's DHCP settings.
-#define BACKEND_HOST "YOUR-LAPTOP-NAME"  // the laptop's computer name; found as <name>.local
+#define BACKEND_HOST "YOUR-LAPTOP-NAME"  // the laptop's computer name (run `hostname`); found as <name>.local
 #define BACKEND_PORT 8000
 #define BACKEND_URL "http://192.168.0.10:8000"  // fallback if the name lookup fails
-#define STATION_EMAIL "conveyor.station@example.com"
+// The conveyor logs in to the backend as a technician account. With the backend's demo data
+// (python seed_demo.py) that account is conveyor.station@medidispense.com; its demo password is
+// in the setup guide in the conveyor-docs repo. If you made your own technician, use that.
+#define STATION_EMAIL "conveyor.station@medidispense.com"
 #define STATION_PASSWORD "THE_STATION_ACCOUNT_PASSWORD"
 
