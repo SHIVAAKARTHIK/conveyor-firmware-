@@ -19,6 +19,7 @@
 #include <WiFi.h>
 
 #include "config.h"
+#include "setup_portal.h"  // settings kept on the board + the WiFi/backend setup page
 
 unsigned long lastBlinkAt = 0;
 bool ledOn = false;
@@ -355,6 +356,16 @@ void handleBeltCommand(char c) {
       Serial.printf("bench test %s (sensor A -> servo 1, sensor B -> servo 2)\n",
                     autoPush ? "ON" : "OFF");
       break;
+    case 'u':
+      beltStop();
+      runSetupPortal("requested from the serial console", true);
+      break;
+    case 'c':
+      clearSettings();
+      Serial.println("Saved settings cleared - restarting with the defaults from config.h.");
+      delay(300);
+      ESP.restart();
+      break;
     case 'h':
       h6Enabled = !h6Enabled;
       if (h6Enabled) autoPush = false;
@@ -415,6 +426,7 @@ void handleStatus() {
   json += "\"wifi_rssi\":" + String(WiFi.RSSI()) + ",";
   json += "\"mode\":\"" + String(modeName()) + "\",";
   json += "\"h6_state\":\"" + String(h6StateName()) + "\",";
+  json += "\"settings\":\"" + String(cfg.fromFlash ? "saved" : "built-in") + "\",";
   json += "\"job_bed\":" + String(h6State == H6_IDLE ? 0 : jobBed) + ",";
   json += "\"button\":\"" + String(digitalRead(PIN_BUTTON) == LOW ? "PRESSED" : "open") + "\",";
   json += "\"button_presses\":" + String(buttonPresses) + ",";
@@ -546,20 +558,22 @@ const unsigned long H6_RUN_TIMEOUT_MS = 40000;  // box never reached its sensor
 // The laptop's address changes on this router, so find it by name (mDNS, e.g.
 // KARTHIK.local) and fall back to the address written in config.h.
 void resolveBackend() {
-#ifdef BACKEND_HOST
   h6LastResolveAt = millis();
-  IPAddress ip = MDNS.queryHost(BACKEND_HOST, 2000);
+  if (cfg.backendHost.length() == 0) {
+    backendBase = cfg.backendUrl;  // no name given: use the address only
+    return;
+  }
+  IPAddress ip = MDNS.queryHost(cfg.backendHost.c_str(), 2000);
   if (ip != IPAddress(0, 0, 0, 0)) {
     String url = "http://" + ip.toString() + ":" + String(BACKEND_PORT);
     if (url != backendBase) {
       backendBase = url;
       Serial.printf("H6: found the backend at %s\n", url.c_str());
     }
-  } else if (backendBase != String(BACKEND_URL)) {
-    backendBase = BACKEND_URL;
-    Serial.printf("H6: name lookup failed, using the address from config.h (%s)\n", BACKEND_URL);
+  } else if (backendBase != cfg.backendUrl) {
+    backendBase = cfg.backendUrl;
+    Serial.printf("H6: name lookup failed, using the saved address (%s)\n", cfg.backendUrl.c_str());
   }
-#endif
 }
 
 int backendRequest(const char* method, const String& path, const String& body, String& response) {
@@ -581,8 +595,8 @@ int backendRequest(const char* method, const String& path, const String& body, S
 
 bool backendLogin() {
   JsonDocument req;
-  req["email"] = STATION_EMAIL;
-  req["password"] = STATION_PASSWORD;
+  req["email"] = cfg.stationEmail;
+  req["password"] = cfg.stationPass;
   String body;
   serializeJson(req, body);
   authToken = "";  // do not send a stale token while logging in
@@ -769,17 +783,37 @@ void setup() {
   buzzerSetup();
   buttonSetup();
 
-  Serial.printf("Connecting to WiFi \"%s\"", WIFI_SSID);
+  loadSettings();
+  backendBase = cfg.backendUrl;
+  Serial.printf("Settings: %s\n", cfg.fromFlash ? "saved on the board (setup page)" : "built-in defaults from config.h");
+
+  // Holding the push button for 3 s while powering on opens the setup page.
+  bool holdForSetup = false;
+  if (digitalRead(PIN_BUTTON) == LOW) {
+    unsigned long heldSince = millis();
+    while (digitalRead(PIN_BUTTON) == LOW && millis() - heldSince < 3000) delay(20);
+    holdForSetup = (millis() - heldSince >= 3000);
+  }
+  if (settingsArePlaceholders()) runSetupPortal("first start: no WiFi has been set up yet", false);
+  if (holdForSetup) runSetupPortal("button held while powering on", true);
+
+  Serial.printf("Connecting to WiFi \"%s\"", cfg.ssid.c_str());
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(cfg.ssid.c_str(), cfg.wifiPass.c_str());
 
   // While connecting, blink fast (5 Hz) so you can tell at a glance the
-  // board is alive and still trying - not yet successful.
-  while (WiFi.status() != WL_CONNECTED) {
+  // board is alive and still trying - not yet successful. Give up after 30 s
+  // and open the setup page, so a changed or missing WiFi can be fixed without a cable.
+  unsigned long connectStart = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - connectStart < 30000) {
     digitalWrite(ONBOARD_LED_PIN, ledOn ? HIGH : LOW);
     ledOn = !ledOn;
     delay(100);
     Serial.print(".");
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println();
+    runSetupPortal("could not join the saved WiFi", true);
   }
 
   Serial.println();
@@ -796,6 +830,9 @@ void setup() {
   Serial.println("  t = toggle bench test: sensor A pushes servo 1, sensor B pushes servo 2");
   Serial.println("--- Delivery loop (H6) ---");
   Serial.println("  h = toggle the real delivery loop (on at boot): polls the backend, button starts a run");
+  Serial.println("--- Setup ---");
+  Serial.println("  u = open the setup page (WiFi MediDispense-Setup)   c = clear saved settings");
+  Serial.println("  Also: hold the push button for 3 s while powering on.");
 }
 
 void loop() {

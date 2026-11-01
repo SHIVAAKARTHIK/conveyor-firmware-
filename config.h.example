@@ -9,7 +9,9 @@
 
 // --- H1: WiFi ---------------------------------------------------------------
 
-// EDIT THESE two lines for your WiFi network before uploading.
+// Defaults only. You normally do NOT edit these: on a new board the setup page (WiFi
+// "MediDispense-Setup", http://192.168.4.1) saves the WiFi and login on the board itself.
+// Leave the placeholder WiFi name as it is and the board opens the setup page on first start.
 #define WIFI_SSID "YOUR_WIFI_NAME"
 #define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 
