@@ -1,7 +1,7 @@
 // ============================================================================
 // MediDispense conveyor dispensing station - firmware
 //
-// Built up one tested milestone at a time - see docs/phase-2-plan.md for the
+// Built up one tested milestone at a time - see the setup guide in the conveyor-docs repo for the
 // full H1-H6 build order. Each milestone adds to this file rather than
 // replacing it, so by H6 this sketch is the complete station firmware.
 //

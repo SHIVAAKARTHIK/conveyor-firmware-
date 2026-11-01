@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // Config for the MediDispense conveyor dispensing station, built up one
 // milestone at a time (H1 -> H6). Sections below are labelled with the
-// milestone that introduced them - see docs/phase-2-plan.md for the build
+// milestone that introduced them - see the setup guide in the conveyor-docs repo for the build
 // order and the wiring table these pin numbers come from.
 // ---------------------------------------------------------------------------
 
